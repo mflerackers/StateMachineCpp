@@ -66,7 +66,10 @@ public:
 
         // Makes this state a substate of the given state
         MachineState &substateOf(S state) {
-            // TODO: Check for cycles
+            // Check if parent state is not yet set
+            assert(!fParentState);
+            // Check for cycles
+            assert(!isDescendantOf(state));
             fParentState = state;
             return *this;
         }
