@@ -1,3 +1,5 @@
+[![Run on Repl.it](https://repl.it/badge/github/mflerackers/StateMachineCpp)](https://repl.it/github/mflerackers/StateMachineCpp)
+
 # State Machine
 
 A state machine implementation written in modern C++ based on the API of the stateless C# library.
