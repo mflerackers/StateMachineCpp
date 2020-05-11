@@ -23,44 +23,62 @@ public:
         // Transition from one state to another state
         MachineState &permit(T trigger, S state) {
             assert(state != fState);
-            fTriggers.insert({trigger, std::make_pair(state, nullptr)});
+            fTriggers.insert({trigger, {state}});
             return *this;
         }
 
         // Conditional transition from one state to another state
         MachineState &permitIf(T trigger, S state, const std::function<bool()> &predicate) {
             assert(state != fState);
-            fTriggers.insert({trigger, std::make_pair(state, predicate)});
+            fTriggers.insert({trigger, {state, predicate}});
             return *this;
         }
 
         // Transition from one state to the same state
         MachineState &permitReentry(T trigger) {
-            fTriggers.insert({trigger, std::make_pair(fState, nullptr)});
+            fTriggers.insert({trigger, {fState}});
+            return *this;
+        }
+
+        // Transition from one state to the same state
+        MachineState &permitReentryIf(T trigger, const std::function<bool()> &predicate) {
+            fTriggers.insert({trigger, {fState, predicate}});
+            return *this;
+        }
+
+        // Transition from one state to a dynamicly selected state
+        MachineState &permitDynamic(T trigger, const std::function<S()> &selector) {
+            fTriggers.insert({trigger, {}});
+            return *this;
+        }
+
+        // Transition from one state to a dynamicly selected state
+        MachineState &permitDynamic(T trigger, const std::function<S()> &selector, const std::function<bool()> &predicate) {
+            fTriggers.insert({trigger, {}});
             return *this;
         }
 
         // No transition, but also no handler exception
         MachineState &ignore(T trigger) {
-            fTriggers.insert({trigger, std::make_pair(std::nullopt, nullptr)});
+            fTriggers.insert({trigger, {}});
             return *this;
         }
 
         // Conditionally no transition, but also no handler exception
         MachineState &ignoreIf(T trigger, const std::function<bool()> &predicate) {
-            fTriggers.insert({trigger, std::make_pair(std::nullopt, predicate)});
+            fTriggers.insert({trigger, {predicate}});
             return *this;
         }
 
         // No transition, but calls action
         MachineState &internalTransition(T trigger, const std::function<void()> &action) {
-            fTriggers.insert({trigger, std::make_pair(std::nullopt, nullptr)}); // TODO: call action
+            fTriggers.insert({trigger, {std::nullopt, nullptr, action}}); // TODO: call action
             return *this;
         }
 
-        // Conditionally no transition, but also no handler exception
+        // Conditionally no transition, but calls action
         MachineState &internalTransitionIf(T trigger, const std::function<bool()> &predicate, const std::function<void()> &action) {
-            fTriggers.insert({trigger, std::make_pair(std::nullopt, predicate)}); // TODO: call action
+            fTriggers.insert({trigger, {std::nullopt, predicate, action}}); // TODO: call action
             return *this;
         }
 
@@ -94,16 +112,38 @@ public:
             return *this;
         }
 
-        using PredicateState = std::pair<std::optional<S>, std::function<bool()>>;
-
     private:
         friend class Machine;
 
-        PredicateState *getDestinationFor(T trigger) {
+        class TriggerAction {
+        public:
+            TriggerAction(S state, const std::function<bool()> &predicate, const std::function<bool()> &action) : 
+                fState(state), 
+                fPredicate(predicate),
+                fAction(action) {}
+
+            TriggerAction(S state, const std::function<bool()> &predicate) : 
+                TriggerAction(state, predicate, nullptr) {}
+
+            TriggerAction(S state) : 
+                TriggerAction(state, nullptr, nullptr) {}
+
+            TriggerAction(const std::function<bool()> &predicate) : 
+                TriggerAction(std::nullopt, predicate, nullptr) {}
+
+            TriggerAction() : 
+                TriggerAction(std::nullopt, nullptr, nullptr) {}
+
+            std::optional<S>        fState;
+            std::function<bool()>   fPredicate;
+            std::function<void()>   fAction;
+        };
+
+        TriggerAction *getActionFor(T trigger) {
             auto range = fTriggers.equal_range(trigger);
             for (auto i = range.first; i != range.second; i++) {
-                if (i->second.second) {
-                    if (i->second.second()) {
+                if (i->second.fPredicate) {
+                    if (i->second.fPredicate()) {
                         return &i->second;
                     }
                 }
@@ -126,7 +166,7 @@ public:
         S                                       fState;
         std::optional<S>                        fParentState;
         std::optional<S>                        fInitialState;
-        std::multimap<T, PredicateState>        fTriggers; // TODO: use std::variant once std::visit works on iOS
+        std::multimap<T, TriggerAction>         fTriggers; // TODO: use std::variant once std::visit works on iOS
         std::function<void()>                   fOnEntry;
         std::function<void()>                   fOnExit;
     };
@@ -144,23 +184,30 @@ public:
     void fire(T trigger) {
         // Lookup current state
         auto source = getMachineState(fState);
-        // Lookup trigger getDestinationFor
-        auto transition = getDestinationFor(fState, trigger);
-        if (!transition) {
+        // Lookup trigger action
+        auto action = getActionFor(fState, trigger);
+        if (!action) {
             if (fOnUnhandledTrigger) {
                 fOnUnhandledTrigger(fState, trigger);
             }
             else {
-                throw std::runtime_error("Trigger not handled");
+                assert(false);
             }
             return;
         }
-        // Check if it isn't an ignore
-        if (!transition->first) { return; }
-        auto destination = getMachineState(*transition->first);
+        // Check if it isn't an ignore or internal transition
+        if (!action->fState) {
+            // If it is an internal transition, call the action
+            if (action->fAction) {
+                action->fAction();
+            }
+            return; 
+        }
+        auto destination = getMachineState(*action->fState);
         // Call exit on old state, and get the highest state reachest when exiting
         auto topLevelState = exit(source, destination, source == destination);
         fState = destination->fState;
+        transitioned(source, destination, trigger);
         // Call entry on new state
         enter(topLevelState, destination, false);
     }
@@ -219,18 +266,17 @@ private:
     }
 
     std::shared_ptr<MachineState> getMachineState(S state) {
-        auto i = fStates.find(state);
-        if (fStates.end() == i) { throw std::runtime_error("State not configured"); }
-        return i->second;
+        assert(fStates.count(state));
+        return getCachedMachineState(state);
     }
 
-    typename MachineState::PredicateState *getDestinationFor(S state, T trigger) {
+    typename MachineState::TriggerAction *getActionFor(S state, T trigger) {
         auto currentState = getMachineState(state);
-        auto destination = currentState->getDestinationFor(trigger);
+        auto destination = currentState->getActionFor(trigger);
         // If the trigger is not handled in the current state, check the parent state
         while (!destination && currentState->fParentState) {
             currentState = getMachineState(*currentState->fParentState);
-            destination = currentState->getDestinationFor(trigger);
+            destination = currentState->getActionFor(trigger);
         }
         return destination;
     }
@@ -327,7 +373,7 @@ private:
         return src;
     }
 
-    void transition(std::shared_ptr<MachineState> &from, std::shared_ptr<MachineState> &to, T trigger) {
+    void transitioned(std::shared_ptr<MachineState> &from, std::shared_ptr<MachineState> &to, T trigger) {
         if (fOnTransitioned) {
             fOnTransitioned(from->fState, to->fState, trigger);
         }
