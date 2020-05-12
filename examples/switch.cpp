@@ -1,5 +1,3 @@
-#ifdef SWITCH_EXAMPLE
-
 #include "../machine.h"
 
 enum class State { Off, On };
@@ -15,5 +13,3 @@ int main() {
     m.fire(Trigger::Switch);
     assert(m.isInState(State::On));
 }
-
-#endif

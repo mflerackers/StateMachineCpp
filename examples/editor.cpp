@@ -1,5 +1,3 @@
-#ifdef EDITOR_EXAMPLE
-
 #include "../machine.h" 
 
 enum class State { Play, Edit, Translate, Rotate, Scale };
@@ -30,5 +28,3 @@ int main() {
     m.fire(Trigger::Play);
     assert(m.isInState(State::Play));
 }
-
-#endif

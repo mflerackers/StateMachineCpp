@@ -141,3 +141,34 @@ assert(m.isInState(State::Play));
 ### State reentry
 
 ### Dynamic destinations
+
+We saw how we could limit transaction by giving a condition or predicate to permitIf. When there are more than 2 options, it can be a hassle to write the correct permitIf statements though.
+
+In these cases permitDynamic can give us a way to write a dynamic transition more naturally.
+
+```cpp
+enum class State { Idle, Less, Equal, Greater };
+enum class Trigger { Compare, Reset };
+
+Machine<State, Trigger> m(State::Idle);
+
+int compare(int a, int b) [
+    int d = a - b;
+    return d < 0 ? State::Less : d > 0 ? State::Greater : State::Equal;
+]
+
+m.configure(State::Idle)
+    .permitDynamic(Trigger::Compare, compare);
+m.configure(State::Less)
+    .permit(Trigger::Reset, State::Idle);
+m.configure(State::Equal)
+    .permit(Trigger::Reset, State::Idle);
+m.configure(State::Greater)
+    .permit(Trigger::Reset, State::Idle);
+
+assert(m.isInState(State::Idle));
+m.fire(Trigger::Compare, 1, 2);
+assert(m.isInState(State::Less));
+m.fire(Trigger::Reset);
+assert(m.isInState(State::Idle));
+```
