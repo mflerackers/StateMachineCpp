@@ -199,6 +199,51 @@ void testReentrySubState() {
     assert(sequence == "<A>A>B");
 }
 
+void testDynamicTrigger() {
+    /*
+        A ~ B
+    */
+    std::cout << "-- testDynamicTrigger\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("A");
+    m.configure("A")
+        .permitDynamic("X", [](){ return std::string("B"); })
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    assert(m.isInState("A"));
+    m.fire("X");
+    assert(m.isInState("B"));
+    std::cout << sequence << "\n";
+    assert(sequence == "<A>B");
+}
+
+void testDynamicTriggerParameters() {
+    /*
+        A ~ [B || c]
+    */
+    std::cout << "-- testDynamicTriggerParameters\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("A");
+    m.configure("A")
+        .permitDynamic<int>("X", [](int i){ return i > 0 ? std::string("B") : std::string("C"); })
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    m.configure("C")
+        .onEntry([&sequence](){ std::cout << "entering C\n"; sequence += ">C"; })
+        .onExit([&sequence](){ std::cout << "exiting C\n"; sequence += "<C"; });
+    assert(m.isInState("A"));
+    m.fire("X", 1);
+    assert(m.isInState("B"));
+    std::cout << sequence << "\n";
+    assert(sequence == "<A>B");
+}
+
 int main() {
     testPermit();
     testInitialSubState();
@@ -207,6 +252,8 @@ int main() {
     testExitSuperSubState();
     testEnterSuperSubState();
     testReentrySubState();
+    testDynamicTrigger();
+    testDynamicTriggerParameters();
 
     std::cout << "Finished!\n";
 }
