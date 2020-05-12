@@ -105,7 +105,7 @@ assert(m.isInState(State::Play));
 
 ### Initial transition
 
-Wouldn't it be nice if we went immediately to translate mode when we entered edit mode? Of course we could make play mode transition to translate mode explicitly by modifying the premit call. However there is another way, we can let edit mode decide which tool is default, which feels cleaner.
+Wouldn't it be nice if we went immediately to translate mode when we entered edit mode? Of course we could make play mode transition to translate mode explicitly by modifying the permit call. However there is another way, we can let edit mode decide which tool is default, which feels cleaner.
 
 This can be done be calling initialTransition and specifying the sub state we want to transition to when entering the edit state.
 
@@ -142,7 +142,7 @@ assert(m.isInState(State::Play));
 
 ### Dynamic destinations
 
-We saw how we could limit transaction by giving a condition or predicate to permitIf. When there are more than 2 options, it can be a hassle to write the correct permitIf statements though.
+We saw how we could make a transition conditionally by giving a predicate to permitIf. When there are more than 2 options, it can be a hassle to write the correct permitIf statements though.
 
 In these cases permitDynamic can give us a way to write a dynamic transition more naturally.
 
