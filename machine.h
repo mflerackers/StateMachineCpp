@@ -224,7 +224,12 @@ public:
                     return dynamic_cast<TriggerAction<Args...>*>(i->second.get());
                 }
             }
-            return nullptr;
+            if (fParentState) {
+                return fMachine.getMachineState(*fParentState)->template getActionFor<Args...>(trigger);
+            }
+            else {
+                return nullptr;
+            }
         }
 
         bool isDescendantOf(S state) {
@@ -372,26 +377,10 @@ private:
         return getCachedMachineState(state);
     }
 
-    typename MachineState::template TriggerAction<> *getActionFor(S state, T trigger) {
-        auto currentState = getMachineState(state);
-        auto destination = currentState->template getActionFor<>(trigger);
-        // If the trigger is not handled in the current state, check the parent state
-        while (!destination && currentState->fParentState) {
-            currentState = getMachineState(*currentState->fParentState);
-            destination = currentState->getActionFor(trigger);
-        }
-        return destination;
-    }
-
     template <typename ...Args>
     typename MachineState::template TriggerAction<Args...> *getActionFor(S state, T trigger) {
         auto currentState = getMachineState(state);
         auto destination = currentState->template getActionFor<Args...>(trigger);
-        // If the trigger is not handled in the current state, check the parent state
-        while (!destination && currentState->fParentState) {
-            currentState = getMachineState(*currentState->fParentState);
-            destination = currentState->template getActionFor<Args...>(trigger);
-        }
         return destination;
     }
 

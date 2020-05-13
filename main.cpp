@@ -244,6 +244,187 @@ void testDynamicTriggerParameters() {
     assert(sequence == "<A>B");
 }
 
+void testIgnoreSubState() {
+    /*
+          A
+         / \
+        B   C
+    */
+    std::cout << "-- testIgnoreSubState\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("B");
+    m.configure("A")
+        .permit("X", "C")
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .substateOf("A")
+        .ignore("X")
+        .onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    m.configure("C")
+        .substateOf("A")
+        .onEntry([&sequence](){ std::cout << "entering C\n"; sequence += ">C"; })
+        .onExit([&sequence](){ std::cout << "exiting C\n"; sequence += "<C"; });
+    assert(m.isInState("B"));
+    m.fire("X");
+    assert(m.isInState("B"));
+    std::cout << sequence << "\n";
+    assert(sequence == "");
+}
+
+void testIgnoreIfTrueSubState() {
+    /*
+          A
+         / \
+        B   C
+    */
+    std::cout << "-- testIgnoreIfSubState\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("B");
+    m.configure("A")
+        .permit("X", "C")
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .substateOf("A")
+        .ignoreIf("X", [](){ return true; })
+        .onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    m.configure("C")
+        .substateOf("A")
+        .onEntry([&sequence](){ std::cout << "entering C\n"; sequence += ">C"; })
+        .onExit([&sequence](){ std::cout << "exiting C\n"; sequence += "<C"; });
+    assert(m.isInState("B"));
+    m.fire("X");
+    assert(m.isInState("B"));
+    std::cout << sequence << "\n";
+    assert(sequence == "");
+}
+
+void testIgnoreIfFalseSubState() {
+    /*
+          A
+         / \
+        B   C
+    */
+    std::cout << "-- testIgnoreIfFalseSubState\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("B");
+    m.configure("A")
+        .permit("X", "C")
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .substateOf("A")
+        .ignoreIf("X", [](){ return false; })
+        .onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    m.configure("C")
+        .substateOf("A")
+        .onEntry([&sequence](){ std::cout << "entering C\n"; sequence += ">C"; })
+        .onExit([&sequence](){ std::cout << "exiting C\n"; sequence += "<C"; });
+    assert(m.isInState("B"));
+    m.fire("X");
+    assert(m.isInState("C"));
+    std::cout << sequence << "\n";
+    assert(sequence == "<B>C");
+}
+
+void testInternalTransitionOneState() {
+    /*
+          A
+    */
+    std::cout << "-- testInternalTransition\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("A");
+    m.configure("A")
+        .internalTransition("X", [](){})
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    assert(m.isInState("A"));
+    m.fire("X");
+    assert(m.isInState("A"));
+    std::cout << sequence << "\n";
+    assert(sequence == "");
+}
+
+void testInternalTransitionTwoStates() {
+    /*
+          A   B
+    */
+    std::cout << "-- testInternalTransitionTwoStates\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("A");
+    m.configure("A")
+        .internalTransition("X", [](){})
+        .permit("Y", "B")
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .internalTransition("X", [](){})
+        .permit("Y", "A")
+        .onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    assert(m.isInState("A"));
+    m.fire("X");
+    assert(m.isInState("A"));
+    m.fire("Y");
+    assert(m.isInState("B"));
+    m.fire("X");
+    assert(m.isInState("B"));
+    std::cout << sequence << "\n";
+    assert(sequence == "<A>B");
+}
+
+void testInternalTransitionSubState() {
+    /*
+          A
+          |
+          B
+    */
+    std::cout << "-- testInternalTransitionSubState\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("B");
+    m.configure("A")
+        .internalTransition("X", [](){})
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .substateOf("A")
+        .onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    assert(m.isInState("B"));
+    m.fire("X");
+    assert(m.isInState("B"));
+    std::cout << sequence << "\n";
+    assert(sequence == "");
+}
+
+void testInternalTransitionSubState2() {
+    /*
+          A
+          |
+          B
+    */
+    std::cout << "-- testInternalTransitionSubState2\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("B");
+    m.configure("A")
+        .onEntry([&sequence](){ std::cout << "entering A\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .substateOf("A")
+        .internalTransition("X", [](){})
+        .onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    assert(m.isInState("B"));
+    m.fire("X");
+    assert(m.isInState("B"));
+    std::cout << sequence << "\n";
+    assert(sequence == "");
+}
+
 int main() {
     testPermit();
     testInitialSubState();
@@ -254,6 +435,13 @@ int main() {
     testReentrySubState();
     testDynamicTrigger();
     testDynamicTriggerParameters();
+    testIgnoreSubState();
+    testIgnoreIfTrueSubState();
+    testIgnoreIfFalseSubState();
+    testInternalTransitionOneState();
+    testInternalTransitionTwoStates();
+    testInternalTransitionSubState();
+    testInternalTransitionSubState2();
 
     std::cout << "Finished!\n";
 }
