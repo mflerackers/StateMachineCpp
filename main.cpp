@@ -244,6 +244,31 @@ void testDynamicTriggerParameters() {
     assert(sequence == "<A>B");
 }
 
+void testDynamicTriggerEntryExitParameters() {
+    /*
+        A ~ [B || c]
+    */
+    std::cout << "-- testDynamicTriggerEntryExitParameters\n";
+    std::string sequence;
+    Machine<std::string, std::string> m("A");
+    m.configure("A")
+        .permitDynamic<int>("X", [](int i){ return i > 0 ? std::string("B") : std::string("C"); })
+        .onEntryFrom<int>("X", [&sequence](int i){ std::cout << "entering A with " << i << "\n"; sequence += ">A"; })
+        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+    m.configure("B")
+        .onEntryFrom<int>("X", [&sequence](int i){ std::cout << "entering B with " << i << "\n"; sequence += ">B"; })
+        //.onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
+        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+    m.configure("C")
+        .onEntry([&sequence](){ std::cout << "entering C\n"; sequence += ">C"; })
+        .onExit([&sequence](){ std::cout << "exiting C\n"; sequence += "<C"; });
+    assert(m.isInState("A"));
+    m.fire("X", 1);
+    assert(m.isInState("B"));
+    std::cout << sequence << "\n";
+    assert(sequence == "<A>B");
+}
+
 void testIgnoreSubState() {
     /*
           A
@@ -435,6 +460,7 @@ int main() {
     testReentrySubState();
     testDynamicTrigger();
     testDynamicTriggerParameters();
+    testDynamicTriggerEntryExitParameters();
     testIgnoreSubState();
     testIgnoreIfTrueSubState();
     testIgnoreIfFalseSubState();
