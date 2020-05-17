@@ -1,4 +1,4 @@
-#include <iostream>
+ #include <iostream>
 #include <cassert>
 #include <functional>
 #include <map>
@@ -127,6 +127,13 @@ public:
         template<typename ...Args, typename F>
         MachineState &onEntryFrom(T trigger, F callback) {
             fOnEntryWithParameters.template insert_or_assign<Args...>(trigger, std::make_unique<TypedTriggerCallBack<Args...>>(callback));
+            return *this;
+        }
+
+        // Set a callback for when this state is entered
+        template<typename ...Args, typename F>
+        MachineState &onExitFrom(T trigger, F callback) {
+            fOnExitWithParameters.template insert_or_assign<Args...>(trigger, std::make_unique<TypedTriggerCallBack<Args...>>(callback));
             return *this;
         }
 
@@ -282,6 +289,7 @@ public:
             }
         }
 
+        // Virtual class used for type erasure of std::function
         class TriggerCallback {
         public:
             virtual ~TriggerCallback() {}
@@ -311,12 +319,10 @@ public:
 
             void insert_or_assign(T trigger, std::unique_ptr<TriggerCallback> &&callback) {
                 fCallbacks.insert_or_assign(trigger, std::move(callback));
-                //std::cout << "callback for " << trigger << " inserted\n";
             }
             
             template <typename Type>
             void insert_or_assign(T trigger, std::unique_ptr<TriggerCallback> &&callback) {
-                //std::cout << "callback for " << trigger << " got submap for " << typeid(Type).name() << "\n";
                 fSubMap[std::type_index(typeid(Type))].insert_or_assign(trigger, std::move(callback));
             }
 
@@ -327,14 +333,12 @@ public:
 
             TriggerCallback *at(T trigger) {
                 auto i = fCallbacks.find(trigger);
-                //std::cout << "callback for " << trigger << (fCallbacks.end() != i ? " found" : " not found") << "\n";
                 return fCallbacks.end() != i ? i->second.get() : nullptr;
             }
 
             template <typename Type>
             TriggerCallback *at(T trigger) {
                 auto i = fSubMap.find(std::type_index(typeid(Type)));
-                //std::cout << "callback for " << trigger << " submap for " << typeid(Type).name() << (fSubMap.end() != i ? " found" : " not found") << "\n";
                 return fSubMap.end() != i ? i->second.at(trigger) : nullptr;
             }
 

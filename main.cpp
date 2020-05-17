@@ -254,11 +254,11 @@ void testDynamicTriggerEntryExitParameters() {
     m.configure("A")
         .permitDynamic<int>("X", [](int i){ return i > 0 ? std::string("B") : std::string("C"); })
         .onEntryFrom<int>("X", [&sequence](int i){ std::cout << "entering A with " << i << "\n"; sequence += ">A"; })
-        .onExit([&sequence](){ std::cout << "exiting A\n"; sequence += "<A"; });
+        .onExitFrom<int>("X", [&sequence](int i){ std::cout << "exiting A with " << i << "\n"; sequence += "<A"; });
     m.configure("B")
         .onEntryFrom<int>("X", [&sequence](int i){ std::cout << "entering B with " << i << "\n"; sequence += ">B"; })
-        //.onEntry([&sequence](){ std::cout << "entering B\n"; sequence += ">B"; })
-        .onExit([&sequence](){ std::cout << "exiting B\n"; sequence += "<B"; });
+        .onExitFrom<int>("X", [&sequence](int i){ std::cout << "exiting B with " << i << "\n"; sequence += "<B"; });
+        
     m.configure("C")
         .onEntry([&sequence](){ std::cout << "entering C\n"; sequence += ">C"; })
         .onExit([&sequence](){ std::cout << "exiting C\n"; sequence += "<C"; });
